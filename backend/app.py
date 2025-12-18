@@ -3,10 +3,13 @@ from dotenv import load_dotenv
 import os
 from spotipy.oauth2 import SpotifyClientCredentials
 import spotipy
+from routes.user import user_bp
 
 load_dotenv()
 
 app = Flask(__name__)
+
+app.register_blueprint(user_bp)
 
 # Spotify 인증
 client_credentials_manager = SpotifyClientCredentials(
@@ -73,4 +76,4 @@ if __name__ == '__main__':
     print("Test: http://localhost:5000/test")
     print("Health: http://localhost:5000/health")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)

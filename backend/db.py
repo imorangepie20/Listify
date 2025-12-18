@@ -20,7 +20,7 @@ if __name__ == '__main__':
     DB_HOST = "localhost" 
     DB_PORT = 3306
     DB_USER = "root" 
-    DB_PASSWORD = "1234"
+    DB_PASSWORD = "0000"
     DB_DATABASE = "listify"
 
     conn = connect_to_mysql(DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_DATABASE)
