@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -12,6 +13,7 @@ from routes.user import user_bp
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 # Blueprint 등록
