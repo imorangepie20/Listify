@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\휴먼\listify\backend\test_playlist.py", line 195, in <module>
+    print("""
+UnicodeEncodeError: 'cp949' codec can't encode character '\u2554' in position 2: illegal multibyte sequence
