@@ -71,12 +71,12 @@ def find_by_notice_no(notice_no: int):
 
 
 def list_all_with_user():
-    """리스트 조회(작성자 닉네임 포함)"""
+    """리스트 조회(작성자 닉네임 포함) - content 제외"""
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             sql = (
-                "SELECT n.notice_no, n.user_no, n.title, n.content,"
+                "SELECT n.notice_no, n.user_no, n.title,"
                 " n.created_at, n.updated_at, u.nickname"
                 " FROM notice n LEFT JOIN user u ON n.user_no = u.user_no"
                 " ORDER BY n.created_at DESC"
