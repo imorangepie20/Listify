@@ -17,3 +17,8 @@ def get_music_list():
 @music_bp.route('/top50', methods=['GET'])
 def get_global_top_50():
     return music_controller.get_global_top_50()
+
+@music_bp.route('/bulk-import', methods=['POST'])
+def bulk_import():
+    return music_controller.bulk_import()
+

@@ -103,6 +103,43 @@ def search_and_save_music(keyword, category):
 
     return saved, None
 
+def bulk_import_music(query, total_count=100):
+    """대량 음악 데이터 가져오기"""
+    sp = get_spotify_client()
+    all_tracks = []
+    limit = 50
+    offset = 0
+
+    try:
+        while len(all_tracks) < total_count:
+            results = sp.search(
+                q=query,
+                type='track',
+                limit=limit,
+                offset=offset,
+                market='KR'
+            )
+            tracks = results['tracks']['items']
+            if not tracks:
+                break
+
+            for track in tracks:
+                if len(all_tracks) >= total_count:
+                    break
+
+                music, is_new = save_track_if_not_exists(sp, track)
+                if music:
+                    music['is_new'] = is_new
+                    all_tracks.append(music)
+
+            offset += limit
+
+        return all_tracks, None
+
+    except Exception as e:
+        return None, str(e)
+
+
 
 def get_global_top_50():
     """Spotify 글로벌 Top 50 가져와서 저장"""
@@ -125,6 +162,8 @@ def get_global_top_50():
 
     except Exception as e:
         return None, str(e)
+    
+    
 
 
 def get_music_list(category=None, value=None):

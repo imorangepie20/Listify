@@ -112,3 +112,15 @@ def find_genre_no_by_name(name):
             return row['genre_no'] if row else None
     finally:
         conn.close()
+        
+def find_by_spotify_track_id(track_id):
+    conn = get_conn()
+    try:
+        with conn.cursor() as c:
+            c.execute(
+                "SELECT * FROM music WHERE spotify_track_id = %s",
+                (track_id,)
+            )
+            return c.fetchone()
+    finally:
+        conn.close()
