@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Trash2, GripVertical, Save, X, ListMusic } from 'lucide-react';
 import { Music } from '../types';
 
@@ -33,9 +33,8 @@ export default function CartSidebar({
 
   return (
     <div
-      className={`fixed top-0 right-0 h-full w-80 md:w-96 bg-card border-l border-zinc-800 transition-transform duration-300 z-50 shadow-2xl flex flex-col ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}
+      className={`fixed top-0 right-0 h-full w-80 md:w-96 bg-card border-l border-zinc-800 transition-transform duration-300 z-50 shadow-2xl flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
     >
       {/* Header */}
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">

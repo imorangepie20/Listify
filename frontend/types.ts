@@ -26,6 +26,7 @@ export interface Music {
   duration_ms: number;
   popularity: number;
   spotify_url: string;
+  preview_url?: string | null;  // 30초 미리듣기 URL
 
   genre_no?: number;
   release_date?: string | null;

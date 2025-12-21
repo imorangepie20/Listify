@@ -74,7 +74,7 @@ def save_track_if_not_exists(sp, track):
 
     genre_no = extract_genre_no(sp, artist_id) if artist_id else None
 
-    album = reminded_album = track.get("album") or {}
+    album = track.get("album") or {}
     images = album.get("images") or []
     album_image_url = images[0].get("url") if images else None
 
@@ -86,7 +86,8 @@ def save_track_if_not_exists(sp, track):
         "duration_ms": track.get("duration_ms") or 0,
         "popularity": track.get("popularity") or 0,
         "spotify_url": spotify_url,
-        "genre_no": genre_no
+        "genre_no": genre_no,
+        "preview_url": track.get("preview_url")  # 30초 미리듣기 URL
     }
 
     music_no = music_model.insert_music(music)

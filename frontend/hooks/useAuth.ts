@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
-import { verifyToken, logout as logoutApi } from '../services/authService';
+import { verifyToken, logout as logoutApi, getToken } from '../services/authService';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -8,20 +8,21 @@ export const useAuth = () => {
 
   // 🔁 새로고침 시 자동 로그인
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = getToken();
     if (!token) return;
 
     const checkAuth = async () => {
       try {
         const response = await verifyToken(token);
         if (response.success && response.data) {
+          const data = response.data as any;
           setUser({
-            user_no: response.data.user_no,
-            role_no: response.data.role_no,
-            email: response.data.email ?? '',
-            nickname: response.data.nickname,
-            profile_url: response.data.profile_url ?? null,
-            created_at: response.data.created_at,
+            user_no: data.user_no ?? parseInt(localStorage.getItem('user_no') || '0'),
+            role_no: data.role_no ?? 1,
+            email: data.email ?? '',
+            nickname: data.nickname ?? localStorage.getItem('nickname') ?? 'User',
+            profile_url: data.profile_url ?? null,
+            created_at: data.created_at ?? new Date().toISOString(),
           });
           setAuthView(null);
         } else {
@@ -36,23 +37,20 @@ export const useAuth = () => {
   }, []);
 
   // ✅ 로그인 성공 시 (Login.tsx에서 호출)
-  const handleLoginSuccess = (
-    user: User,
-    token: string
-  ) => {
-    localStorage.setItem('accessToken', token);
-    localStorage.setItem('user_no', String(user.user_no));
-    localStorage.setItem('nickname', user.nickname);
-
-    setUser(user);
+  const handleLoginSuccess = (userNo: number, nickname: string) => {
+    setUser({
+      user_no: userNo,
+      role_no: 1,
+      email: '',
+      nickname: nickname,
+      profile_url: null,
+      created_at: new Date().toISOString()
+    });
     setAuthView(null);
   };
 
   const handleLogout = () => {
     logoutApi();
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user_no');
-    localStorage.removeItem('nickname');
     setUser(null);
     setAuthView('login');
   };
