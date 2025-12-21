@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import SearchPage from './pages/SearchPage';
+
+
+
 
 import { 
   Home, Library, Search as SearchIcon, User as UserIcon, LogOut, 
@@ -6,7 +10,7 @@ import {
   Search, Loader2, Heart, Check, Calendar, Clock, Edit3, Trash2
 } from 'lucide-react';
 import { Music, Playlist, AppView, User } from './types';
-import { searchMusic, getAllMusic, getTop50Music } from './services/musicService';
+import { searchMusic, getAllMusic, getTop50Music,  getMusicByGenre } from './services/musicService';
 import { login, register, logout as logoutApi, getToken, verifyToken } from './services/authService';
 import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, addMusicToPlaylist, removeMusicFromPlaylist, getPlaylistMusic } from './services/playlistService';
 import { SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, MOCK_NOTICES, MOCK_STATS } from './constants';
@@ -154,22 +158,108 @@ function App() {
   }, []);
 
   // 백엔드 API로 음악 검색
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+const handleSearch = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!searchQuery.trim()) return;
 
-    setIsSearching(true);
-    try {
-      const response = await searchMusic(searchQuery);
-      if (response.success && response.data) {
-        setSearchResults(response.data);
+  setIsSearching(true);
+
+  try {
+    // ✅ 1. #으로 시작하면 "장르 검색"
+    if (searchQuery.startsWith('#')) {
+      let rawGenre = searchQuery.slice(1).trim().toLowerCase();
+
+      // ✅ 2. 장르 별칭 → DB 장르명 매핑
+      const GENRE_ALIAS: Record<string, string> = {
+        'kpop': 'K-Pop',
+        'k-pop': 'K-Pop',
+        '케이팝': 'K-Pop',
+
+        'pop': 'Pop',
+
+        'hiphop': 'Hip-Hop',
+        '힙합': 'Hip-Hop',
+
+        'rnb': 'R&B',
+        '알앤비': 'R&B',
+
+        'jazz': 'Jazz',
+        '재즈': 'Jazz',
+
+        'rock': 'Rock',
+        '락': 'Rock',
+        '록': 'Rock',
+
+        'classical': 'Classical',
+        '클래식': 'Classical',
+
+        'electronic': 'Electronic',
+        '일렉트로닉': 'Electronic',
+
+        'indie': 'Indie',
+        '인디': 'Indie',
+
+        'metal': 'Metal',
+        '메탈': 'Metal'
+      };
+
+      // 🎵 장르 버튼 클릭 시 검색
+
+
+
+
+      const genre = GENRE_ALIAS[rawGenre] ?? searchQuery.slice(1);
+
+      // ✅ 3. DB 장르 검색 API 호출
+      const res = await getMusicByGenre(genre);
+
+      if (res.success && res.data) {
+        setSearchResults(res.data);
+      } else {
+        setSearchResults([]);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
     }
-  };
+    // ✅ 4. 일반 검색 (가수 / 곡 / 앨범 → Spotify)
+    else {
+      const res = await searchMusic(searchQuery);
+
+      if (res.success && res.data) {
+        setSearchResults(res.data);
+      } else {
+        setSearchResults([]);
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    setSearchResults([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+// 🎵 장르 버튼 클릭 → DB 장르 검색
+const handleSearchByGenre = async (genre: string) => {
+  setSearchQuery(genre);
+  setIsSearching(true);
+
+  try {
+    const res = await getMusicByGenre(genre);
+    if (res.success && res.data) {
+      setSearchResults(res.data);
+    } else {
+      setSearchResults([]);
+    }
+  } catch (err) {
+    console.error('장르 검색 실패:', err);
+    setSearchResults([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+
+
+
 
   const toggleCart = (song: Music) => {
     const isInCart = cart.some(c => c.spotify_url === song.spotify_url);
@@ -466,53 +556,18 @@ const handleSavePlaylist = async (title: string, content: string) => {
           )}
 
           {view === 'search' && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              <div className="max-w-2xl mx-auto">
-                <form onSubmit={handleSearch} className="relative group">
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isSearching ? 'text-primary' : 'text-zinc-500 group-focus-within:text-primary'}`} />
-                  <input
-                    type="text"
-                    placeholder="곡 제목, 아티스트 또는 앨범 검색"
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-full py-4 pl-12 pr-4 text-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all shadow-xl"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />}
-                </form>
-              </div>
-
-              {searchResults.length > 0 ? (
-                <div className="space-y-4">
-                  <h3 className="text-xl font-bold">검색 결과</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {searchResults.map((song, i) => (
-                      <div key={i} className="flex items-center gap-4 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/50 hover:bg-zinc-800 transition-all group">
-                        <img src={song.album_image_url} className="w-16 h-16 rounded-lg object-cover" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm truncate text-white">{song.track_name}</p>
-                          <p className="text-xs text-zinc-400 truncate mt-0.5">{song.artist_name}</p>
-                        </div>
-                        <button
-                          onClick={() => toggleCart(song)}
-                          className={`p-2 rounded-full transition-all ${cart.some(c => c.spotify_url === song.spotify_url)
-                            ? 'bg-primary/20 text-primary border border-primary/30'
-                            : 'bg-zinc-800 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-white'
-                            }`}
-                        >
-                          {cart.some(c => c.spotify_url === song.spotify_url) ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : !isSearching && searchQuery && (
-                <div className="py-20 text-center text-zinc-500">
-                  <SearchIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>검색 결과가 없습니다.</p>
-                </div>
-              )}
-            </div>
+            <SearchPage
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSearch={handleSearch}
+              onSearchByGenre={handleSearchByGenre}
+              isSearching={isSearching}
+              searchResults={searchResults}
+              cart={cart}
+              onToggleCart={toggleCart}
+            />
           )}
+
 
           {view === 'library' && (
             <div className="space-y-6">
@@ -680,6 +735,9 @@ const handleSavePlaylist = async (title: string, content: string) => {
     </div>
   );
 }
+
+
+
 
 export default App;
 // test
