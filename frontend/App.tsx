@@ -1,5 +1,9 @@
 // frontend/App.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import SearchPage from './pages/SearchPage';
+
+
+
 
 import {
   Home, Library, Search as SearchIcon, User as UserIcon, LogOut,
@@ -8,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import { Music, Playlist, AppView, User } from './types';
-import { searchMusic, getAllMusic, getTop50Music } from './services/musicService';
+import { searchMusic, getAllMusic, getTop50Music,  getMusicByGenre } from './services/musicService';
 import { login, register, logout as logoutApi, getToken, verifyToken } from './services/authService';
 import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, addMusicToPlaylist, removeMusicFromPlaylist, getPlaylistMusic } from './services/playlistService';
 import { MOCK_NOTICES, MOCK_STATS } from './constants';
@@ -21,6 +25,7 @@ import ProfileEditModal from './components/ProfileEditModal';
 import CartSidebar from './components/CartSidebar';
 import PlaylistDetail from './components/PlaylistDetail';
 import CreatePlaylistModal from './components/CreatePlaylistModal';
+import AddToPlaylistModal from './components/AddToPlaylistModal';
 import { GenreDistribution, WeeklyActivity, AudioRadar } from './components/Charts';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
@@ -40,7 +45,6 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Music[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchCategory, setSearchCategory] = useState<'all' | 'artist' | 'genre'>('all');
 
   const [cart, setCart] = useState<Music[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -54,12 +58,8 @@ function App() {
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(false);
 
-  // 🎧 오디오 플레이어 상태
-  const [currentSong, setCurrentSong] = useState<Music | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isAddToPlaylistModalOpen, setIsAddToPlaylistModalOpen] = useState(false);
+  const [selectedMusicToAdd, setSelectedMusicToAdd] = useState<Music | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -163,23 +163,108 @@ function App() {
   }, []);
 
   // 백엔드 API로 음악 검색
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+const handleSearch = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!searchQuery.trim()) return;
 
-    setIsSearching(true);
-    try {
-      const category = searchCategory === 'all' ? undefined : searchCategory;
-      const response = await searchMusic(searchQuery, category);
-      if (response.success && response.data) {
-        setSearchResults(response.data);
+  setIsSearching(true);
+
+  try {
+    // ✅ 1. #으로 시작하면 "장르 검색"
+    if (searchQuery.startsWith('#')) {
+      let rawGenre = searchQuery.slice(1).trim().toLowerCase();
+
+      // ✅ 2. 장르 별칭 → DB 장르명 매핑
+      const GENRE_ALIAS: Record<string, string> = {
+        'kpop': 'K-Pop',
+        'k-pop': 'K-Pop',
+        '케이팝': 'K-Pop',
+
+        'pop': 'Pop',
+
+        'hiphop': 'Hip-Hop',
+        '힙합': 'Hip-Hop',
+
+        'rnb': 'R&B',
+        '알앤비': 'R&B',
+
+        'jazz': 'Jazz',
+        '재즈': 'Jazz',
+
+        'rock': 'Rock',
+        '락': 'Rock',
+        '록': 'Rock',
+
+        'classical': 'Classical',
+        '클래식': 'Classical',
+
+        'electronic': 'Electronic',
+        '일렉트로닉': 'Electronic',
+
+        'indie': 'Indie',
+        '인디': 'Indie',
+
+        'metal': 'Metal',
+        '메탈': 'Metal'
+      };
+
+      // 🎵 장르 버튼 클릭 시 검색
+
+
+
+
+      const genre = GENRE_ALIAS[rawGenre] ?? searchQuery.slice(1);
+
+      // ✅ 3. DB 장르 검색 API 호출
+      const res = await getMusicByGenre(genre);
+
+      if (res.success && res.data) {
+        setSearchResults(res.data);
+      } else {
+        setSearchResults([]);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearching(false);
     }
-  };
+    // ✅ 4. 일반 검색 (가수 / 곡 / 앨범 → Spotify)
+    else {
+      const res = await searchMusic(searchQuery);
+
+      if (res.success && res.data) {
+        setSearchResults(res.data);
+      } else {
+        setSearchResults([]);
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    setSearchResults([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+// 🎵 장르 버튼 클릭 → DB 장르 검색
+const handleSearchByGenre = async (genre: string) => {
+  setSearchQuery(genre);
+  setIsSearching(true);
+
+  try {
+    const res = await getMusicByGenre(genre);
+    if (res.success && res.data) {
+      setSearchResults(res.data);
+    } else {
+      setSearchResults([]);
+    }
+  } catch (err) {
+    console.error('장르 검색 실패:', err);
+    setSearchResults([]);
+  } finally {
+    setIsSearching(false);
+  }
+};
+
+
+
+
 
   const toggleCart = (song: Music) => {
     const isInCart = cart.some(c => c.spotify_url === song.spotify_url);
@@ -190,69 +275,11 @@ function App() {
     }
   };
 
-  // 🎵 곡 재생/선택
+  // 🎵 Spotify 웹 플레이어에서 곡 열기
   const handlePlaySong = (song: Music) => {
-    if (!song.preview_url) {
-      // preview가 없으면 Spotify에서 열기
-      if (song.spotify_url) {
-        window.open(song.spotify_url, '_blank');
-      }
-      return;
+    if (song.spotify_url) {
+      window.open(song.spotify_url, '_blank');
     }
-
-    if (currentSong?.spotify_url === song.spotify_url) {
-      // 같은 곡 클릭 시 재생/일시정지 토글
-      togglePlayPause();
-    } else {
-      // 새 곡 선택
-      setCurrentSong(song);
-      setIsPlaying(true);
-      setCurrentTime(0);
-    }
-  };
-
-  // 재생/일시정지 토글
-  const togglePlayPause = () => {
-    if (!audioRef.current) return;
-
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  // 오디오 시간 업데이트
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  // 오디오 메타데이터 로드
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  // 진행바 클릭으로 seek
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioRef.current || !duration) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * duration;
-    audioRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
-  // 시간 포맷팅 (초 -> mm:ss)
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // 플레이리스트 클릭 핸들러
@@ -291,6 +318,61 @@ function App() {
       console.error('플레이리스트 저장 실패:', error);
       alert('플레이리스트 저장에 실패했습니다.');
     }
+  };
+
+  // 플레이리스트 생성 (빈 플레이리스트 또는 선택한 곡과 함께)
+  const handleCreatePlaylist = async (title: string, content: string) => {
+    if (!user) return;
+
+    try {
+      const createRes = await createPlaylist(title, content);
+      if (!createRes.success || !createRes.data) {
+        alert('플레이리스트 생성에 실패했습니다.');
+        return;
+      }
+
+      const playlistNo = createRes.data.playlist_no;
+
+      // 선택한 곡이 있으면 플레이리스트에 추가
+      if (selectedMusicToAdd) {
+        await addMusicToPlaylist(playlistNo, selectedMusicToAdd.music_no);
+        setSelectedMusicToAdd(null);
+      }
+
+      // 플레이리스트 목록 새로고침
+      await fetchPlaylists(user.user_no);
+
+      setIsCreateModalOpen(false);
+      alert('플레이리스트가 생성되었습니다!');
+    } catch (error) {
+      console.error('플레이리스트 생성 실패:', error);
+      alert('플레이리스트 생성에 실패했습니다.');
+    }
+  };
+
+  // 기존 플레이리스트에 곡 추가
+  const handleAddMusicToPlaylist = async (playlistNo: number) => {
+    if (!user || !selectedMusicToAdd) return;
+
+    try {
+      const res = await addMusicToPlaylist(playlistNo, selectedMusicToAdd.music_no);
+      if (res.success) {
+        await fetchPlaylists(user.user_no);
+        setSelectedMusicToAdd(null);
+        alert('곡이 플레이리스트에 추가되었습니다!');
+      } else {
+        alert(res.message || '곡 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('곡 추가 실패:', error);
+      alert('곡 추가에 실패했습니다.');
+    }
+  };
+
+  // 곡 추가 모달 열기
+  const handleOpenAddToPlaylist = (music: Music) => {
+    setSelectedMusicToAdd(music);
+    setIsAddToPlaylistModalOpen(true);
   };
 
   // 플레이리스트에서 음악 제거
@@ -527,24 +609,19 @@ function App() {
                         {/* Play Button Overlay */}
                         <button
                           onClick={() => handlePlaySong(song)}
-                          className={`absolute bottom-2 left-2 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 ${song.preview_url
-                            ? 'bg-primary text-black'
-                            : 'bg-zinc-600 text-white'
-                            }`}
-                          title={song.preview_url ? '미리듣기' : 'Spotify에서 듣기'}
+                          className="absolute bottom-2 left-2 p-2.5 rounded-full shadow-xl transition-all bg-primary text-black opacity-0 group-hover:opacity-100 hover:scale-110"
+                          title="Spotify에서 듣기"
                         >
                           <Play className="w-4 h-4" />
                         </button>
 
-                        {/* Cart Button */}
+                        {/* Add to Playlist Button */}
                         <button
-                          onClick={() => toggleCart(song)}
-                          className={`absolute bottom-2 right-2 p-2 rounded-full shadow-xl transition-all ${cart.some(c => c.spotify_url === song.spotify_url)
-                            ? 'bg-primary text-black opacity-100'
-                            : 'bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-white hover:text-black'
-                            }`}
+                          onClick={() => handleOpenAddToPlaylist(song)}
+                          className="absolute bottom-2 right-2 p-2 rounded-full shadow-xl transition-all bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-black"
+                          title="플레이리스트에 추가"
                         >
-                          {cart.some(c => c.spotify_url === song.spotify_url) ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
                       <p className="font-bold text-sm truncate">{song.track_name}</p>
@@ -557,13 +634,14 @@ function App() {
           )}
 
           {view === 'search' && (
+
             <div className="space-y-8 animate-in fade-in duration-500">
               <div className="max-w-2xl mx-auto space-y-4">
                 <form onSubmit={handleSearch} className="relative group">
                   <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isSearching ? 'text-primary' : 'text-zinc-500 group-focus-within:text-primary'}`} />
                   <input
                     type="text"
-                    placeholder="곡 제목, 아티스트 또는 앨범 검색"
+                    placeholder="곡 제목, 아티스트 또는 앨범 검색 (#장르명으로 카테고리 검색)"
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-full py-4 pl-12 pr-4 text-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all shadow-xl"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -571,24 +649,16 @@ function App() {
                   {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />}
                 </form>
 
-                {/* 카테고리 선택 */}
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-zinc-500 text-sm mr-2">검색 필터:</span>
-                  {[
-                    { value: 'all', label: '전체' },
-                    { value: 'artist', label: '아티스트' },
-                    { value: 'genre', label: '장르' },
-                  ].map((cat) => (
+                {/* Genre Buttons */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {['K-Pop', 'Pop', 'Rock', 'Hip-Hop', 'Jazz', 'Electronic'].map((genre) => (
                     <button
-                      key={cat.value}
+                      key={genre}
                       type="button"
-                      onClick={() => setSearchCategory(cat.value as 'all' | 'artist' | 'genre')}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${searchCategory === cat.value
-                          ? 'bg-primary text-black'
-                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
-                        }`}
+                      onClick={() => handleSearchByGenre(genre)}
+                      className="px-4 py-1.5 rounded-full text-sm bg-zinc-800 text-zinc-300 hover:bg-primary hover:text-black transition-colors"
                     >
-                      {cat.label}
+                      #{genre}
                     </button>
                   ))}
                 </div>
@@ -605,9 +675,8 @@ function App() {
                           <img src={song.album_image_url} className="w-16 h-16 rounded-lg object-cover" />
                           <button
                             onClick={() => handlePlaySong(song)}
-                            className={`absolute inset-0 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${song.preview_url ? 'bg-primary/80' : 'bg-black/50'
-                              }`}
-                            title={song.preview_url ? '미리듣기' : 'Spotify에서 듣기'}
+                            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Spotify에서 듣기"
                           >
                             <Play className="w-6 h-6 text-white" />
                           </button>
@@ -618,13 +687,11 @@ function App() {
                           <p className="text-xs text-zinc-400 truncate mt-0.5">{song.artist_name}</p>
                         </div>
                         <button
-                          onClick={() => toggleCart(song)}
-                          className={`p-2 rounded-full transition-all ${cart.some(c => c.spotify_url === song.spotify_url)
-                            ? 'bg-primary/20 text-primary border border-primary/30'
-                            : 'bg-zinc-800 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-white'
-                            }`}
+                          onClick={() => handleOpenAddToPlaylist(song)}
+                          className="p-2 rounded-full bg-zinc-800 text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-primary hover:text-black transition-all"
+                          title="플레이리스트에 추가"
                         >
-                          {cart.some(c => c.spotify_url === song.spotify_url) ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -639,12 +706,16 @@ function App() {
             </div>
           )}
 
+
           {view === 'library' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold">라이브러리</h2>
                 <button
-                  onClick={() => setView('search')}
+                  onClick={() => {
+                    setSelectedMusicToAdd(null);
+                    setIsCreateModalOpen(true);
+                  }}
                   className="bg-white text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-zinc-200 transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> 새 플레이리스트
@@ -725,72 +796,6 @@ function App() {
 
         </div>
 
-        {/* Player Bar */}
-        {currentSong && currentSong.preview_url && (
-          <div className="h-24 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 flex items-center px-8 fixed bottom-0 left-64 right-0 z-30 shadow-2xl">
-            {/* Hidden Audio Element */}
-            <audio
-              ref={audioRef}
-              src={currentSong.preview_url}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onEnded={() => setIsPlaying(false)}
-              autoPlay={isPlaying}
-            />
-
-            {/* Song Info */}
-            <div className="flex items-center gap-4 w-1/3">
-              <img src={currentSong.album_image_url} className="w-14 h-14 rounded-lg shadow-lg" />
-              <div className="truncate">
-                <p className="font-bold text-sm truncate text-white">{currentSong.track_name}</p>
-                <p className="text-xs text-zinc-400 truncate mt-1">{currentSong.artist_name}</p>
-              </div>
-              <button className="ml-2 text-zinc-500 hover:text-primary transition-colors">
-                <Heart className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Controls */}
-            <div className="flex-1 flex flex-col items-center gap-2">
-              <div className="flex items-center gap-6">
-                <button
-                  onClick={togglePlayPause}
-                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 text-black" /> : <Play className="w-5 h-5 text-black ml-1" />}
-                </button>
-              </div>
-
-              {/* Progress Bar */}
-              <div
-                className="w-full max-w-md h-1.5 bg-zinc-800 rounded-full overflow-hidden cursor-pointer group"
-                onClick={handleSeek}
-              >
-                <div
-                  className="h-full bg-primary shadow-[0_0_10px_rgba(29,185,84,0.5)] transition-all"
-                  style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
-                />
-              </div>
-
-              {/* Time Display */}
-              <div className="flex justify-between w-full max-w-md text-[10px] text-zinc-500 font-mono">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            {/* Close Button */}
-            <div className="w-1/3 flex justify-end">
-              <button
-                onClick={() => { setCurrentSong(null); setIsPlaying(false); }}
-                className="text-zinc-500 hover:text-red-400 text-xs"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        )}
-
         <CartSidebar
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
@@ -817,6 +822,7 @@ function App() {
           onClose={() => {
             setIsCreateModalOpen(false);
             setIsEditMode(false);
+            setSelectedMusicToAdd(null);
           }}
           onSave={async (title, content) => {
             if (isEditMode && selectedPlaylist) {
@@ -827,18 +833,38 @@ function App() {
                 setIsEditMode(false);
                 setIsDetailOpen(false);
               }
-            } else {
+            } else if (cart.length > 0) {
+              // 장바구니에서 플레이리스트 생성
               await handleSavePlaylist(title, content);
               setIsCreateModalOpen(false);
+            } else {
+              // 빈 플레이리스트 생성 또는 선택한 곡과 함께 생성
+              await handleCreatePlaylist(title, content);
             }
           }}
           initialTitle={isEditMode ? selectedPlaylist?.title : ''}
           initialContent={isEditMode ? selectedPlaylist?.content || '' : ''}
           mode={isEditMode ? 'edit' : 'create'}
         />
+
+        <AddToPlaylistModal
+          isOpen={isAddToPlaylistModalOpen}
+          onClose={() => {
+            setIsAddToPlaylistModalOpen(false);
+            setSelectedMusicToAdd(null);
+          }}
+          playlists={playlists}
+          onSelectPlaylist={handleAddMusicToPlaylist}
+          onCreateNew={() => {
+            setIsAddToPlaylistModalOpen(false);
+            setIsCreateModalOpen(true);
+          }}
+        />
       </main>
     </div>
   );
 }
 
+
 export default App;
+

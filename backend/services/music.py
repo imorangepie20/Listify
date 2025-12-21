@@ -26,11 +26,11 @@ GLOBAL_TOP_50_PLAYLIST_ID = "37i9dQZEVXbMDoHDwVN2tF"
 
 def get_spotify_client():
     # ✅ app.py와 동일한 환경변수 이름으로 통일
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    client_id = os.getenv("SPOTIPY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
 
     if not client_id or not client_secret:
-        raise RuntimeError("Spotify 환경변수(SPOTIFY_CLIENT_ID/SECRET)가 설정되지 않았습니다.")
+        raise RuntimeError("Spotify 환경변수(SPOTIPY_CLIENT_ID/SECRET)가 설정되지 않았습니다.")
 
     return Spotify(
         auth_manager=SpotifyClientCredentials(

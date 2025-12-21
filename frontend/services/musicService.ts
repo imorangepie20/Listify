@@ -9,37 +9,75 @@ interface ApiResponse<T> {
   data?: T;
 }
 
-const authFetch = async (endpoint: string): Promise<ApiResponse<any>> => {
+
+// 공통 fetch (JWT 포함)
+const authFetch = async (
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Response> => {
   const token = getToken();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {})
+
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${endpoint}`, { headers });
-  return res.json();
+  return fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers
+  });
 };
 
-// 음악 검색 (카테고리 옵션 포함)
-export const searchMusic = (q: string, category?: string) => {
-  let url = `/music/search?q=${encodeURIComponent(q)}`;
-  if (category) {
-    url += `&category=${encodeURIComponent(category)}`;
+// 🔍 Spotify 검색 (가수 / 곡 / 앨범)
+export const searchMusic = async (
+  keyword: string
+): Promise<ApiResponse<Music[]>> => {
+  try {
+    const res = await authFetch(
+      `/music/search?q=${encodeURIComponent(keyword)}`
+    );
+    return await res.json();
+  } catch (e) {
+    return { success: false, message: '음악 검색 실패' };
   }
-  return authFetch(url);
 };
 
-// 전체 음악 조회
-export const getAllMusic = () =>
-  authFetch('/music');
+// 📚 전체 음악 조회
+export const getAllMusic = async (): Promise<ApiResponse<Music[]>> => {
+  try {
+    const res = await authFetch('/music');
+    return await res.json();
+  } catch (e) {
+    return { success: false, message: '음악 목록 조회 실패' };
+  }
+};
 
-// 장르별 음악 조회
-export const getMusicByGenre = (genre: string) =>
-  authFetch(`/music?category=genre&value=${encodeURIComponent(genre)}`);
+// 🔥 장르 검색 (DB)
+export const getMusicByGenre = async (
+  genre: string
+): Promise<ApiResponse<Music[]>> => {
+  try {
+    const res = await authFetch(
+      `/music?category=genre&value=${encodeURIComponent(genre)}`
+    );
+    return await res.json();
+  } catch (e) {
+    return { success: false, message: '장르 검색 실패' };
+  }
+};
 
-// Top 50 음악 조회
-export const getTop50Music = () =>
-  authFetch('/music/top50');
+// 🌍 Top 50
+export const getTop50Music = async (): Promise<ApiResponse<Music[]>> => {
+  try {
+    const res = await authFetch('/music/top50');
+    return await res.json();
+  } catch (e) {
+    return { success: false, message: 'Top 50 조회 실패' };
+  }
+};
+
