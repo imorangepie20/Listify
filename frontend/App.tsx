@@ -40,6 +40,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Music[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchCategory, setSearchCategory] = useState<'all' | 'artist' | 'genre'>('all');
 
   const [cart, setCart] = useState<Music[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -168,7 +169,8 @@ function App() {
 
     setIsSearching(true);
     try {
-      const response = await searchMusic(searchQuery);
+      const category = searchCategory === 'all' ? undefined : searchCategory;
+      const response = await searchMusic(searchQuery, category);
       if (response.success && response.data) {
         setSearchResults(response.data);
       }
@@ -556,7 +558,7 @@ function App() {
 
           {view === 'search' && (
             <div className="space-y-8 animate-in fade-in duration-500">
-              <div className="max-w-2xl mx-auto">
+              <div className="max-w-2xl mx-auto space-y-4">
                 <form onSubmit={handleSearch} className="relative group">
                   <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${isSearching ? 'text-primary' : 'text-zinc-500 group-focus-within:text-primary'}`} />
                   <input
@@ -568,6 +570,28 @@ function App() {
                   />
                   {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />}
                 </form>
+
+                {/* 카테고리 선택 */}
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-zinc-500 text-sm mr-2">검색 필터:</span>
+                  {[
+                    { value: 'all', label: '전체' },
+                    { value: 'artist', label: '아티스트' },
+                    { value: 'genre', label: '장르' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setSearchCategory(cat.value as 'all' | 'artist' | 'genre')}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${searchCategory === cat.value
+                          ? 'bg-primary text-black'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                        }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {searchResults.length > 0 ? (

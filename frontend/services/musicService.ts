@@ -23,11 +23,23 @@ const authFetch = async (endpoint: string): Promise<ApiResponse<any>> => {
   return res.json();
 };
 
-export const searchMusic = (q: string) =>
-  authFetch(`/music/search?q=${encodeURIComponent(q)}`);
+// 음악 검색 (카테고리 옵션 포함)
+export const searchMusic = (q: string, category?: string) => {
+  let url = `/music/search?q=${encodeURIComponent(q)}`;
+  if (category) {
+    url += `&category=${encodeURIComponent(category)}`;
+  }
+  return authFetch(url);
+};
 
+// 전체 음악 조회
 export const getAllMusic = () =>
   authFetch('/music');
 
+// 장르별 음악 조회
+export const getMusicByGenre = (genre: string) =>
+  authFetch(`/music?category=genre&value=${encodeURIComponent(genre)}`);
+
+// Top 50 음악 조회
 export const getTop50Music = () =>
   authFetch('/music/top50');

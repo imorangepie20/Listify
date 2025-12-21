@@ -108,8 +108,7 @@ def health():
         }, 500
 
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5001))
-    debug = os.environ.get('FLASK_DEBUG', 'true').lower() == 'true'
-    print(f"Server: http://localhost:{port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    print("Test: http://localhost:5001/test")
+    print("Health: http://localhost:5001/health")
+    
+    app.run(host='0.0.0.0', port=5001, debug=True)
