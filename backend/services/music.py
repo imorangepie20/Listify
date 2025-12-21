@@ -1,6 +1,7 @@
 from model import music as music_model
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials
+from services import deezer
 import os
 
 GENRE_MAP = {
@@ -87,7 +88,7 @@ def save_track_if_not_exists(sp, track):
         "popularity": track.get("popularity") or 0,
         "spotify_url": spotify_url,
         "genre_no": genre_no,
-        "preview_url": track.get("preview_url")  # 30초 미리듣기 URL
+        "preview_url": deezer.get_preview_url(track.get("name") or "", artist_name)  # Deezer에서 30초 미리듣기 URL
     }
 
     music_no = music_model.insert_music(music)

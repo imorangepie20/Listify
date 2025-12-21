@@ -1,5 +1,5 @@
 // frontend/App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import {
   Home, Library, Search as SearchIcon, User as UserIcon, LogOut,
@@ -52,6 +52,13 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [showAllTracks, setShowAllTracks] = useState(false);
+
+  // 🎧 오디오 플레이어 상태
+  const [currentSong, setCurrentSong] = useState<Music | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -181,11 +188,69 @@ function App() {
     }
   };
 
-  // 🎵 Spotify 웹 플레이어에서 곡 열기
+  // 🎵 곡 재생/선택
   const handlePlaySong = (song: Music) => {
-    if (song.spotify_url) {
-      window.open(song.spotify_url, '_blank');
+    if (!song.preview_url) {
+      // preview가 없으면 Spotify에서 열기
+      if (song.spotify_url) {
+        window.open(song.spotify_url, '_blank');
+      }
+      return;
     }
+
+    if (currentSong?.spotify_url === song.spotify_url) {
+      // 같은 곡 클릭 시 재생/일시정지 토글
+      togglePlayPause();
+    } else {
+      // 새 곡 선택
+      setCurrentSong(song);
+      setIsPlaying(true);
+      setCurrentTime(0);
+    }
+  };
+
+  // 재생/일시정지 토글
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  // 오디오 시간 업데이트
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  // 오디오 메타데이터 로드
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  // 진행바 클릭으로 seek
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const newTime = percent * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  // 시간 포맷팅 (초 -> mm:ss)
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // 플레이리스트 클릭 핸들러
@@ -460,8 +525,11 @@ function App() {
                         {/* Play Button Overlay */}
                         <button
                           onClick={() => handlePlaySong(song)}
-                          className="absolute bottom-2 left-2 p-2.5 rounded-full shadow-xl transition-all bg-primary text-black opacity-0 group-hover:opacity-100 hover:scale-110"
-                          title="Spotify에서 듣기"
+                          className={`absolute bottom-2 left-2 p-2.5 rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 ${song.preview_url
+                            ? 'bg-primary text-black'
+                            : 'bg-zinc-600 text-white'
+                            }`}
+                          title={song.preview_url ? '미리듣기' : 'Spotify에서 듣기'}
                         >
                           <Play className="w-4 h-4" />
                         </button>
@@ -513,8 +581,9 @@ function App() {
                           <img src={song.album_image_url} className="w-16 h-16 rounded-lg object-cover" />
                           <button
                             onClick={() => handlePlaySong(song)}
-                            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Spotify에서 듣기"
+                            className={`absolute inset-0 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${song.preview_url ? 'bg-primary/80' : 'bg-black/50'
+                              }`}
+                            title={song.preview_url ? '미리듣기' : 'Spotify에서 듣기'}
                           >
                             <Play className="w-6 h-6 text-white" />
                           </button>
@@ -631,6 +700,72 @@ function App() {
           {view === 'notices' && <NoticesPage />}
 
         </div>
+
+        {/* Player Bar */}
+        {currentSong && currentSong.preview_url && (
+          <div className="h-24 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-800 flex items-center px-8 fixed bottom-0 left-64 right-0 z-30 shadow-2xl">
+            {/* Hidden Audio Element */}
+            <audio
+              ref={audioRef}
+              src={currentSong.preview_url}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={() => setIsPlaying(false)}
+              autoPlay={isPlaying}
+            />
+
+            {/* Song Info */}
+            <div className="flex items-center gap-4 w-1/3">
+              <img src={currentSong.album_image_url} className="w-14 h-14 rounded-lg shadow-lg" />
+              <div className="truncate">
+                <p className="font-bold text-sm truncate text-white">{currentSong.track_name}</p>
+                <p className="text-xs text-zinc-400 truncate mt-1">{currentSong.artist_name}</p>
+              </div>
+              <button className="ml-2 text-zinc-500 hover:text-primary transition-colors">
+                <Heart className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Controls */}
+            <div className="flex-1 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={togglePlayPause}
+                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
+                >
+                  {isPlaying ? <Pause className="w-5 h-5 text-black" /> : <Play className="w-5 h-5 text-black ml-1" />}
+                </button>
+              </div>
+
+              {/* Progress Bar */}
+              <div
+                className="w-full max-w-md h-1.5 bg-zinc-800 rounded-full overflow-hidden cursor-pointer group"
+                onClick={handleSeek}
+              >
+                <div
+                  className="h-full bg-primary shadow-[0_0_10px_rgba(29,185,84,0.5)] transition-all"
+                  style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+                />
+              </div>
+
+              {/* Time Display */}
+              <div className="flex justify-between w-full max-w-md text-[10px] text-zinc-500 font-mono">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <div className="w-1/3 flex justify-end">
+              <button
+                onClick={() => { setCurrentSong(null); setIsPlaying(false); }}
+                className="text-zinc-500 hover:text-red-400 text-xs"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
 
         <CartSidebar
           isOpen={isCartOpen}
