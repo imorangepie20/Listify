@@ -22,3 +22,6 @@ def get_global_top_50():
 def bulk_import():
     return music_controller.bulk_import()
 
+@music_bp.route('/preview', methods=['GET'])
+def get_preview_url():
+    return music_controller.get_preview_url()

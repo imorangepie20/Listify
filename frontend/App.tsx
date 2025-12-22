@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import { Music, Playlist, AppView, User } from './types';
-import { searchMusic, getAllMusic, getTop50Music, getMusicByGenre } from './services/musicService';
+import { searchMusic, getAllMusic, getTop50Music, getMusicByGenre, getPreviewUrl } from './services/musicService';
 import { login, register, logout as logoutApi, getToken, verifyToken } from './services/authService';
 import { getUserPlaylists, createPlaylist, updatePlaylist, deletePlaylist, addMusicToPlaylist, removeMusicFromPlaylist, getPlaylistMusic } from './services/playlistService';
 import { MOCK_NOTICES, MOCK_STATS } from './constants';
@@ -96,6 +96,16 @@ function App() {
     };
     checkAuth();
   }, []);
+
+  // 🎵 currentSong 변경 시 자동 재생
+  useEffect(() => {
+    if (currentSong && currentSong.preview_url && audioRef.current) {
+      audioRef.current.load();
+      audioRef.current.play().catch(err => {
+        console.log('Autoplay prevented:', err);
+      });
+    }
+  }, [currentSong]);
 
   // 플레이리스트 목록 조회 함수 (음악 포함)
   const fetchPlaylists = async (userNo: number) => {
@@ -282,22 +292,28 @@ function App() {
     }
   };
 
-  // 🎵 곡 재생/선택
-  const handlePlaySong = (song: Music) => {
-    if (!song.preview_url) {
+  // 🎵 곡 재생/선택 (실시간 Deezer preview URL 가져오기)
+  const handlePlaySong = async (song: Music) => {
+    // 이미 재생 중인 곡이면 토글
+    if (currentSong?.spotify_url === song.spotify_url) {
+      togglePlayPause();
+      return;
+    }
+
+    // Deezer에서 실시간으로 preview URL 가져오기
+    const res = await getPreviewUrl(song.track_name, song.artist_name);
+
+    if (res.success && res.preview_url) {
+      // preview URL이 있으면 재생
+      const songWithPreview = { ...song, preview_url: res.preview_url };
+      setCurrentSong(songWithPreview);
+      setIsPlaying(true);
+      setCurrentTime(0);
+    } else {
       // preview가 없으면 Spotify에서 열기
       if (song.spotify_url) {
         window.open(song.spotify_url, '_blank');
       }
-      return;
-    }
-
-    if (currentSong?.spotify_url === song.spotify_url) {
-      togglePlayPause();
-    } else {
-      setCurrentSong(song);
-      setIsPlaying(true);
-      setCurrentTime(0);
     }
   };
 

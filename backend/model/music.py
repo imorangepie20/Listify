@@ -105,3 +105,21 @@ def find_by_spotify_track_id(track_id):
             return c.fetchone()
     finally:
         conn.close()
+
+
+def update_preview_url(music_no, preview_url):
+    """기존 음악의 preview_url 업데이트"""
+    conn = get_connection()
+    try:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE music SET preview_url = %s WHERE music_no = %s",
+                (preview_url, music_no)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"preview_url 업데이트 실패: {e}")
+        return False
+    finally:
+        conn.close()

@@ -81,3 +81,17 @@ export const getTop50Music = async (): Promise<ApiResponse<Music[]>> => {
   }
 };
 
+// 🎵 실시간 Deezer preview URL 가져오기
+export const getPreviewUrl = async (
+  trackName: string,
+  artistName: string
+): Promise<{ success: boolean; preview_url?: string; message?: string }> => {
+  try {
+    const res = await authFetch(
+      `/music/preview?track=${encodeURIComponent(trackName)}&artist=${encodeURIComponent(artistName)}`
+    );
+    return await res.json();
+  } catch (e) {
+    return { success: false, message: '미리듣기 URL 조회 실패' };
+  }
+};

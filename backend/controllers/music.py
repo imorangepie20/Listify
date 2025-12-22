@@ -71,3 +71,21 @@ def bulk_import():
         "data": musics
     }), 200
 
+
+def get_preview_url():
+    """실시간으로 Deezer에서 preview URL 가져오기"""
+    track_name = request.args.get('track')
+    artist_name = request.args.get('artist')
+    
+    if not track_name or not artist_name:
+        return jsonify({"success": False, "message": "track과 artist 파라미터가 필요합니다."}), 400
+    
+    preview_url, error = music_service.get_fresh_preview_url(track_name, artist_name)
+    
+    if error:
+        return jsonify({"success": False, "message": error}), 404
+    
+    return jsonify({
+        "success": True,
+        "preview_url": preview_url
+    }), 200

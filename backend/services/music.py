@@ -58,7 +58,7 @@ def extract_genre_no(sp, artist_id):
 
 
 def save_track_if_not_exists(sp, track):
-    """트랙이 DB에 없으면 저장, 있으면 기존 데이터 반환"""
+    """트랙이 DB에 없으면 저장, 있으면 기존 데이터 반환 (preview_url 없으면 업데이트)"""
     spotify_url = track.get("external_urls", {}).get("spotify")
     if not spotify_url:
         return None, False
@@ -66,6 +66,14 @@ def save_track_if_not_exists(sp, track):
     # 중복 체크
     existing = music_model.find_by_spotify_url(spotify_url)
     if existing:
+        # preview_url이 없으면 Deezer에서 가져와서 업데이트
+        if not existing.get('preview_url'):
+            track_name = existing.get('track_name', '')
+            artist_name = existing.get('artist_name', '')
+            preview_url = deezer.get_preview_url(track_name, artist_name)
+            if preview_url:
+                music_model.update_preview_url(existing['music_no'], preview_url)
+                existing['preview_url'] = preview_url
         return existing, False  # 이미 존재
 
     # 새로 저장
@@ -209,3 +217,14 @@ def get_global_top_50():
 
 def get_music_list(category=None, value=None):
     return music_model.find_all(category, value), None
+
+
+def get_fresh_preview_url(track_name, artist_name):
+    """실시간으로 Deezer에서 preview URL 가져오기"""
+    try:
+        preview_url = deezer.get_preview_url(track_name, artist_name)
+        if preview_url:
+            return preview_url, None
+        return None, "Deezer에서 미리듣기를 찾을 수 없습니다."
+    except Exception as e:
+        return None, str(e)
